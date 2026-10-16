@@ -7,11 +7,13 @@ struct UIKitEditorSurface: UIViewRepresentable {
     let configuration: EditorSurfaceConfiguration
     let router: EditorCommandRouter
     let onSnapshot: @MainActor (EditorSnapshot) -> Void
+    // Injectable for observing actual UIKit writes in native regression tests.
+    var makeTextView: @MainActor () -> UITextView = { UITextView() }
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
     func makeUIView(context: Context) -> UITextView {
-        let view = UITextView()
+        let view = makeTextView()
         // The ONLY text assignment: the seed for a new editing session.
         view.text = configuration.initialText
         view.isEditable = configuration.isEditable

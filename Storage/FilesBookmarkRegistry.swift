@@ -8,6 +8,9 @@ struct FilesBookmarkRegistry {
         let volume: Data
 
         static func capture(_ url: URL) throws -> ResourceIdentity {
+            var url = url
+            // A coordinated URL may still cache the identity from before atomic replacement.
+            url.removeAllCachedResourceValues()
             let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileResourceIdentifierKey, .volumeIdentifierKey])
             guard values.isRegularFile == true, values.isSymbolicLink != true,
                   let file = values.fileResourceIdentifier, let volume = values.volumeIdentifier,

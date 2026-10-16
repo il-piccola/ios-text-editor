@@ -29,7 +29,6 @@ struct EditorScreen: View {
                 Divider()
                 statusFooter
                 reviewControl
-                cancellationControl
             }
             .navigationTitle("テキストエディタ")
             .navigationBarTitleDisplayMode(.inline)
@@ -120,20 +119,18 @@ struct EditorScreen: View {
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? 1 : 2)
-            ViewThatFits(in: .horizontal) {
-                HStack { saveButton(compact: false); reloadButton(compact: false) }
-                HStack { saveButton(compact: true); reloadButton(compact: true) }
-                VStack(alignment: .leading) { saveButton(compact: false, wraps: true); reloadButton(compact: false, wraps: true) }
-            }
-            if commands.isComposing {
-                Text("変換を確定するとファイル操作ができます")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if let notice = state.notice {
-                Text(notice).font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            if let editorNotice { Text(editorNotice).font(.caption).foregroundStyle(.orange).lineLimit(2) }
+            HStack(spacing: 8) { saveButton; reloadButton }
+            // Notices must not insert/remove space above the live text view.
+            Text("状態のお知らせ\n状態のお知らせ")
+                .font(.caption)
+                .hidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(alignment: .topLeading) {
+                    Text(editorNotice ?? state.notice ?? "")
+                        .font(.caption)
+                        .foregroundStyle(editorNotice == nil ? Color.secondary : Color.orange)
+                        .lineLimit(2)
+                }
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -142,13 +139,12 @@ struct EditorScreen: View {
     private var statusFooter: some View {
         Button { showsSaveDetails = true } label: {
             VStack(alignment: .leading, spacing: 5) {
-                Label(draftLabel, systemImage: draftSymbol)
-                Label(cloudLabel, systemImage: state.cloudState.symbol)
+                Label(state.quietDraftLabel, systemImage: draftHasProblem ? "exclamationmark.triangle" : "internaldrive")
+                    .foregroundStyle(draftHasProblem ? Color.orange : Color.secondary)
+                Label(state.quietFileLabel, systemImage: cloudHasProblem ? "exclamationmark.triangle" : "folder")
                     .foregroundStyle(cloudHasProblem ? Color.orange : Color.secondary)
-                if let status = state.autosaveStatus {
-                    Text("保存先への自動保存: " + status).foregroundStyle(.secondary)
-                }
             }
+            .lineLimit(1, reservesSpace: true)
             .font(.caption)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16).padding(.vertical, 10)
@@ -158,10 +154,9 @@ struct EditorScreen: View {
         .accessibilityHint("保存状態の詳細を表示します")
     }
 
-    private var draftSymbol: String {
-        if case .failed = state.draftState { return "exclamationmark.triangle" }
-        if case .protecting = state.draftState { return "arrow.triangle.2.circlepath" }
-        return "internaldrive"
+    private var draftHasProblem: Bool {
+        if case .failed = state.draftState { return true }
+        return false
     }
 
     private var cloudHasProblem: Bool {
@@ -228,6 +223,9 @@ struct EditorScreen: View {
                     }
                 }
                 Section("端末の下書き") {
+                    if commands.isComposing || state.isComposing {
+                        Text("変換を確定するとファイル操作ができます")
+                    }
                     Text("端末の下書きは本文変更後に自動で保護します。保存先への自動保存とは別です。")
                         .font(.caption).foregroundStyle(.secondary)
                     Text(draftLabel)
@@ -371,29 +369,15 @@ struct EditorScreen: View {
         }
     }
 
-    private func saveButton(compact: Bool, wraps: Bool = false) -> some View {
-        Button(action: hasDestination ? saveCurrent : requestSaveAs) {
-            HStack {
-                if state.isBusy { ProgressView() }
-                Label(compact ? "保存" : (hasDestination ? "同じファイルに保存" : "保存先を選ぶ"), systemImage: "square.and.arrow.down")
-            }
-        }
-        .buttonStyle(.borderedProminent)
-        .fixedSize(horizontal: !wraps, vertical: false)
-        .disabled(!canPerformFileAction || state.cloudState == .conflict || state.isOutcomeUncertain)
-        .accessibilityLabel(hasDestination ? "同じファイルに保存" : "保存先を選ぶ")
+    private var saveButton: some View {
+        SaveIconButton(state: state, isComposing: commands.isComposing,
+                       action: hasDestination ? saveCurrent : requestSaveAs)
     }
 
     @ViewBuilder
-    private func reloadButton(compact: Bool, wraps: Bool = false) -> some View {
+    private var reloadButton: some View {
         if actions.onReload != nil {
-            Button { reloadCurrent() } label: {
-                Label(compact ? "再読込" : "保存先から再読込", systemImage: "arrow.clockwise")
-            }
-            .buttonStyle(.bordered)
-            .fixedSize(horizontal: !wraps, vertical: false)
-            .disabled(!canPerformFileAction || !hasDestination)
-            .accessibilityLabel("保存先から再読込")
+            ReloadIconButton(state: state, isComposing: commands.isComposing, action: reloadCurrent)
         }
     }
 
@@ -441,5 +425,71 @@ struct EditorScreen: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16).padding(.vertical, 8)
         }
+    }
+}
+
+/// Transient autosave activity must not flash the control. Busy taps are deliberately
+/// ignored; the screen and core also recheck their guards before any write.
+@MainActor
+struct SaveIconButton: View {
+    let state: EditorScreenState
+    var isComposing: Bool = false
+    let action: @MainActor () -> Void
+
+    var isBlocked: Bool {
+        state.isEditorLocked || state.cloudState == .conflict || state.isOutcomeUncertain
+    }
+
+    func activate() {
+        guard !isBlocked, !state.isBusy, !state.isComposing, !isComposing else { return }
+        action()
+    }
+
+    var body: some View {
+        Button(action: activate) {
+            Image(systemName: "square.and.arrow.down")
+                .font(.body)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isBlocked ? Color.secondary : Color.accentColor)
+        .disabled(isBlocked)
+        .accessibilityLabel("保存")
+        .accessibilityIdentifier("editor.save")
+        .accessibilityHint((state.hasDestination ?? (state.cloudState != .noDestination))
+            ? "現在の保存先に保存します。処理中や変換中のタップは追加の保存を開始しません。"
+            : "最初の保存先を選びます。処理中や変換中は完了を待ってください。")
+    }
+}
+
+@MainActor
+struct ReloadIconButton: View {
+    let state: EditorScreenState
+    var isComposing: Bool = false
+    let action: @MainActor () -> Void
+
+    var isBlocked: Bool {
+        state.isEditorLocked || !(state.hasDestination ?? (state.cloudState != .noDestination))
+    }
+
+    func activate() {
+        guard !isBlocked, !state.isBusy, !state.isComposing, !isComposing else { return }
+        action()
+    }
+
+    var body: some View {
+        Button(action: activate) {
+            Image(systemName: "arrow.clockwise")
+                .font(.body)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isBlocked ? Color.secondary : Color.accentColor)
+        .disabled(isBlocked)
+        .accessibilityLabel("再読込")
+        .accessibilityIdentifier("editor.reload")
+        .accessibilityHint("保存先の内容を確認します。未保存の変更は既存の比較・保護手順で扱います。処理中や変換中は追加の再読込を開始しません。")
     }
 }

@@ -2,7 +2,9 @@
 
 日本語の文章編集と、端末下書き・ファイル保存の状態を分けて扱うiPhone用テキストエディタの初期プロトタイプです。
 
-**Swift/iOSビルド、画面、日本語IME、実Files/Google Drive保存は未検証です。** 通常の保存先には、アプリ内の検証用プロバイダを使用します。Files接続はソース実装済みですが、既定では無効です。新規・別名保存のFiles対応はありません。
+**Xcode 27.1で署名なしSimulatorのDebug/ReleaseビルドとNativeTests 55件が成功しています。実機起動と日本語入力はユーザー報告で確認済みですが、最新の保存・再読込アイコン修正は実機未確認です。実Files/Google Drive保存も未検証です。** 通常の保存先には、アプリ内の検証用プロバイダを使用します。Files接続はソース実装済みですが、既定では無効です。新規・別名保存のFiles対応はありません。
+
+作業を再開する場合は、まず[開発引継ぎ](docs/CONTINUATION-REVIEW.md)を読んでください。現在の制限、当日の変更、次の確認事項をまとめています。
 
 ## 機能と構成
 
@@ -16,7 +18,7 @@
 
 ## 共通ロジックの確認
 
-Node.js 22で検証しています。外部packageのインストールは不要です。
+WindowsではNode.js 22、MacではNode.js 24.21.0で検証しました。外部packageのインストールは不要です。
 
 ```sh
 node --test Tests/core.test.cjs Tests/merge.test.cjs Tests/replacement.test.cjs Tests/reload.test.cjs Tests/data-preservation.test.cjs Tests/capacity.test.cjs

@@ -199,6 +199,9 @@ actor FilesProviderAdapter: ProviderAdapter {
 
     private func uncoordinatedRead(_ url: URL, expected: FilesBookmarkRegistry.ResourceIdentity?) throws -> ReadResult {
         try Task.checkCancellation()
+        var url = url
+        // Refresh size and bookmark metadata as well as identity after an atomic write.
+        url.removeAllCachedResourceValues()
         let resource = try FilesBookmarkRegistry.ResourceIdentity.capture(url)
         if let expected, resource != expected { throw ProviderFailure(code: "identityChanged", message: "保存先のファイル同一性が変わっています。上書きせず選び直してください。") }
         let attributes = try url.resourceValues(forKeys: [.fileSizeKey])

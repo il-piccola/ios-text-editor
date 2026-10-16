@@ -824,9 +824,7 @@ extension SessionController {
     private var noticeIncludingRecoveryHistory: String? {
         let count = (rawState["retainedEvidence"] as? [[String: Any]])?.count ?? 0
         guard count > 0 else { return notice }
-        let history = protectedEpoch >= state.epoch && state.draftError == nil
-            ? "復旧用の比較履歴を \(count) 件、端末下書きに保護しました。古い比較の原文も削除していません。"
-            : "復旧用の比較履歴 \(count) 件の保護完了を待っています。"
+        let history = "復旧用の比較履歴が \(count) 件あります。保護状態は保存状態の詳細で確認できます。"
         return notice.map { $0 + "\n" + history } ?? history
     }
     private var mergePresentation: MergePreviewPresentation? {
@@ -883,7 +881,13 @@ extension SessionController {
     }
 
     var screenActions: EditorScreenActions {
-        EditorScreenActions(onSnapshot: { [weak self] in self?.snapshot($0) },
+        let cancelAction: (@MainActor () -> Void)?
+        if state.operation == nil {
+            cancelAction = nil
+        } else {
+            cancelAction = { [weak self] in self?.cancelSave() }
+        }
+        return EditorScreenActions(onSnapshot: { [weak self] in self?.snapshot($0) },
                             onSave: { [weak self] in self?.save($0) },
                             onSaveAs: { [weak self] name, snapshot in self?.saveAs(name: name, snapshot: snapshot) },
                             onValidateSaveAsName: { [weak self] in self?.validateSaveAsName($0) },
@@ -904,7 +908,7 @@ extension SessionController {
                                 case .offline: scenario = .offline
                                 }
                                 self?.setScenario(scenario)
-                            }, onCancelSave: state.operation == nil ? nil : { [weak self] in self?.cancelSave() },
+                            }, onCancelSave: cancelAction,
                             onReload: { [weak self] snapshot in self?.reload(snapshot) },
                             onReconcileUnknown: { [weak self] in self?.reconcileUnknown() },
                             onResolveMergeConflict: { [weak self] id, resolution in self?.resolveMergeConflict(id, resolution: resolution) },

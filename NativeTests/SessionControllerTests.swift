@@ -195,3 +195,34 @@ final class SessionControllerTests: XCTestCase {
         }
     }
 }
+
+extension SessionControllerTests {
+    func testRepeatedSaveDuringWriteKeepsSingleOperationAndAcceptedRevision() async throws {
+        let root = try directory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fakeDirectory = root.appendingPathComponent("fake")
+        let controller = try SessionController(draftDirectory: root.appendingPathComponent("drafts"),
+                                               fakeDirectory: fakeDirectory)
+        await controller.start()
+        let first = EditorSnapshot(sessionID: controller.state.sessionID, text: "初回本文", isComposing: false)
+        controller.saveAs(name: "重複防止.txt", snapshot: first)
+        try await waitFor { controller.state.operation == nil && controller.state.target != nil }
+        let accepted = controller.state.acceptedRevision
+        controller.setScenario(.delayed)
+        try await Task.sleep(nanoseconds: 20_000_000)
+        let next = EditorSnapshot(sessionID: controller.state.sessionID, text: "初回本文と追記", isComposing: false)
+        controller.save(next)
+        try await waitFor { controller.state.operation?.phase == "writing" }
+        let operation = try XCTUnwrap(controller.state.operation)
+        for _ in 0..<8 {
+            controller.save(next)
+            XCTAssertEqual(controller.state.operation, operation)
+            XCTAssertEqual(controller.state.acceptedRevision, accepted)
+        }
+        try await waitFor { controller.state.operation == nil && controller.state.acceptedRevision == controller.state.revision }
+        XCTAssertEqual(controller.state.text, next.text)
+        let provider = try FakeFileProvider(directory: fakeDirectory)
+        let stored = try await provider.sample()
+        XCTAssertEqual(stored.text, next.text)
+    }
+}

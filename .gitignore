@@ -1,5 +1,6 @@
 # Build and per-user IDE output
 DerivedData/
+DerivedDataRelease/
 build/
 TestResults/
 *.xcresult/
@@ -10,6 +11,7 @@ xcuserdata/
 .vscode/
 
 # Credentials, signing material, and private configuration
+DeviceSigning.local.xcconfig
 .env
 .env.*
 secrets/

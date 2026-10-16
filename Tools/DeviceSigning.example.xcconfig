@@ -1,0 +1,11 @@
+// Opt-in command-line device signing. Copy to DeviceSigning.local.xcconfig
+// at the repository root and supply it explicitly with xcodebuild -xcconfig.
+// No personal identifiers or signing assets belong in this example.
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGNING_ALLOWED[sdk=iphoneos*] = YES
+CODE_SIGN_STYLE[sdk=iphoneos*] = Automatic
+
+// Set this only in the ignored local copy after account/signing approval:
+// DEVELOPMENT_TEAM[sdk=iphoneos*] = YOUR_TEAM_ID
+// If the app identifier is unavailable, choose a unique app identifier for
+// the IyoEditor app build. Do not apply one shared identifier to app + tests.

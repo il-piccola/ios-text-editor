@@ -94,6 +94,23 @@ struct EditorScreenState {
     var historyInspection: HistoryInspectionPresentation? = nil
     var historyRestorePreview: HistoryRestorePreviewPresentation? = nil
     var isFilesPickerEnabled: Bool = false
+
+    // Describe the policy, not a transient success receipt. Exact revisions and
+    // progress remain in save details; problems must still be visible immediately.
+    var quietDraftLabel: String {
+        if case .failed = draftState { return draftState.label }
+        return "端末下書きの自動保護は有効"
+    }
+
+    var quietFileLabel: String {
+        if isOutcomeUncertain { return "保存先への書込結果は不明・確認が必要" }
+        if remoteIssue != nil { return "保存先からのお知らせ・詳細を確認" }
+        switch cloudState {
+        case .failed, .conflict: return cloudState.label
+        case .noDestination: return "保存先未設定・端末下書きのみ"
+        default: return "保存先の状態はタップして確認"
+        }
+    }
 }
 
 struct HistoryEntryPresentation: Identifiable {

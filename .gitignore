@@ -1,0 +1,51 @@
+# Build and per-user IDE output
+DerivedData/
+build/
+TestResults/
+*.xcresult/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+.idea/
+.vscode/
+
+# Credentials, signing material, and private configuration
+.env
+.env.*
+secrets/
+credentials/
+credentials*.json
+client_secret*.json
+token.json
+tokens.json
+GoogleService-Info.plist
+*.pem
+*.key
+*.p8
+*.p12
+*.mobileprovision
+id_rsa*
+id_ed25519*
+
+# Runtime documents and device-specific access records
+IyoDrafts/
+IyoFakeProvider/
+Drafts/
+Bookmarks/
+bookmarks.json
+*.bookmark
+*.sqlite
+*.sqlite-*
+*.db
+
+# Private notes, manuscripts, and local test output
+ENVIRONMENT.md
+History/
+memory_summary.md
+.agents/
+.codex/
+*.tap
+*.log
+*.docx
+*.pages
+*.rtf
